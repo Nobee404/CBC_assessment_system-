@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Assessment Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>School Assessment Management System</h1>
+
+  <form id="assessment-form">
+    <div>
+      <label for="school-name">School Name:</label>
+      <input type="text" id="school-name" placeholder="Enter school name">
+
+      <label for="grade">Grade:</label>
+      <input type="text" id="grade" placeholder="Enter grade">
+
+      <label for="term">Term:</label>
+      <select id="term">
+        <option value="Term 1">Term 1</option>
+        <option value="Term 2">Term 2</option>
+        <option value="Term 3">Term 3</option>
+      </select>
+
+      <label for="year">Year:</label>
+      <input type="number" id="year" placeholder="Enter year">
+
+      <label for="learner-name">Learner's Name:</label>
+      <input type="text" id="learner-name" placeholder="Enter learner's name">
+
+      <label for="subject">Subject:</label>
+      <select id="subject">
+        <option value="English">English</option>
+        <option value="Kiswahili">Kiswahili</option>
+        <option value="Math">Math</option>
+      </select>
+
+      <div>
+        <button type="button" id="add-subject-button">Add New Subject</button>
+      </div>
+
+      <label for="score">Score:</label>
+      <input type="number" id="score" placeholder="Enter score">
+    </div>
+    <button type="submit">Submit</button>
+  </form>
+
+  <h2>Results Table</h2>
+  <div id="results-container">
+    <table id="results-table">
+      <thead>
+        <tr>
+          <th colspan="6" id="school-name-header"></th>
+        </tr>
+        <tr>
+          <th colspan="6" id="grade-term-year-header"></th>
+        </tr>
+        <tr>
+          <th>Rank</th>
+          <th>Name</th>
+          <th>English</th>
+          <th>Kiswahili</th>
+          <th>Math</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+
+  <div>
+    <button id="download-excel">Download Excel</button>
+    <button id="download-pdf">Download PDF</button>
+    <button id="print">Print</button>
+  </div>
+
+  <script src="xlsx.mini.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <script src="script.js"></script>
+</body>
+<footer>
+    
+    <h3>Designed by Mwalimu Samie &copy2025</h3>
+    <h4>Buy me coffee mpesa 0706498902</h4>
+</footer>
+</html>
