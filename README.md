@@ -7,3 +7,4 @@ The added subject will be added and ready for use.
 You can add as many subjects as you need.
 
 NOTE FOR BETTER RESULTS USE THE PRINT BUTTON.The other buttons still working but requires formatting further before printing.
+You can now enter learners rublic as you enter the marks.
