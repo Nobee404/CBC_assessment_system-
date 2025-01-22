@@ -74,4 +74,17 @@ footer {
   border-collapse: collapse;
   margin: 0 auto;
   background: #8098ff;
+  text-align: center;
+  padding: 10px 0;
+}
+
+@media (max-width: 600px) {
+  table, th, td {
+    font-size: 12px;
+  }
+
+  button {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
 }
