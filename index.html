@@ -1,80 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Assessment Management System</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learner Assessment Records</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-docx-js/0.3.1/html-docx.js"></script>
 </head>
 <body>
-  <h1>School Assessment Management System</h1>
+    <div class="container">
+        <h1>📚 Learner Assessment Records 🎓</h1>
+        
+        <!-- School Info Section -->
+        <div class="school-info">
+            <input type="text" id="schoolName" placeholder="School Name">
+            <input type="text" id="term" placeholder="Term">
+            <input type="text" id="year" placeholder="Year">
+            <button onclick="updateSchoolInfo()">Update Info</button>
+        </div>
 
-  <form id="assessment-form">
-    <div>
-      <label for="school-name">School Name:</label>
-      <input type="text" id="school-name" placeholder="Enter school name" required>
+        <!-- Grading Configuration Section -->
+        <div class="grading-config">
+            <h2>Grading Configuration</h2>
+            <div class="grade-range">
+                <label for="exceedingMin">Exceeding Expectations (Min):</label>
+                <input type="number" id="exceedingMin" placeholder="Min Score">
+                <label for="exceedingMax">Exceeding Expectations (Max):</label>
+                <input type="number" id="exceedingMax" placeholder="Max Score">
+            </div>
+            <div class="grade-range">
+                <label for="meetingMin">Meeting Expectations (Min):</label>
+                <input type="number" id="meetingMin" placeholder="Min Score">
+                <label for="meetingMax">Meeting Expectations (Max):</label>
+                <input type="number" id="meetingMax" placeholder="Max Score">
+            </div>
+            <div class="grade-range">
+                <label for="approachingMin">Approaching Expectations (Min):</label>
+                <input type="number" id="approachingMin" placeholder="Min Score">
+                <label for="approachingMax">Approaching Expectations (Max):</label>
+                <input type="number" id="approachingMax" placeholder="Max Score">
+            </div>
+            <div class="grade-range">
+                <label for="belowMin">Below Expectations (Min):</label>
+                <input type="number" id="belowMin" placeholder="Min Score">
+                <label for="belowMax">Below Expectations (Max):</label>
+                <input type="number" id="belowMax" placeholder="Max Score">
+            </div>
+            <button onclick="updateGradingConfig()">Update Grading</button>
+        </div>
 
-      <label for="grade">Grade:</label>
-      <input type="text" id="grade" placeholder="Enter grade" required>
+        <!-- Subject Management Section -->
+        <div class="subject-management">
+            <input list="subjectsList" id="newSubject" placeholder="Enter subject">
+            <datalist id="subjectsList">
+                <option value="MATHEMATICS">
+                <option value="ENGLISH">
+                <option value="KISWAHILI">
+            </datalist>
+            <button onclick="addSubject()" class="subject-btn">➕ Add Subject</button>
+        </div>
 
-      <label for="term">Term:</label>
-      <select id="term" required>
-        <option value="Term 1">Term 1</option>
-        <option value="Term 2">Term 2</option>
-        <option value="Term 3">Term 3</option>
-      </select>
+        <!-- Learner Entry Section -->
+        <div class="learner-entry">
+            <input type="text" id="learnerName" placeholder="Learner's name">
+            <button onclick="addLearner()" class="learner-btn">👨🎓 Add Learner</button>
+            <button onclick="clearAllRecords()" class="clear-btn">❌ Clear All</button>
+        </div>
 
-      <label for="year">Year:</label>
-      <input type="number" id="year" placeholder="Enter year" required>
+        <!-- Score Entry Section -->
+        <div class="score-entry">
+            <select id="scoreSubject">
+                <!-- Subjects will be dynamically populated -->
+            </select>
+            <button onclick="enterScores()" class="score-btn">📝 Enter Scores</button>
+        </div>
 
-      <label for="learner-name">Learner's Name:</label>
-      <input type="text" id="learner-name" placeholder="Enter learner's name" required>
+        <!-- Table Container -->
+        <div class="table-container">
+            <div id="schoolInfoDisplay"></div>
+            <table id="recordsTable">
+                <thead>
+                    <tr id="tableHeader">
+                        <!-- Headers will be dynamically populated -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be dynamically populated -->
+                </tbody>
+            </table>
+        </div>
 
-      <label for="subject">Subject:</label>
-      <select id="subject">
-        <option value="English">English</option>
-        <option value="Kiswahili">Kiswahili</option>
-        <option value="Math">Math</option>
-      </select>
-
-      <label for="score">Score:</label>
-      <input type="number" id="score" placeholder="Enter score" required>
-
-      <button type="button" id="add-subject-button">Add New Subject</button>
+        <!-- Actions Section -->
+        <div class="actions">
+            <button onclick="downloadPDF()" class="download-btn pdf">📥 PDF</button>
+            <button onclick="downloadExcel()" class="download-btn excel">📊 Excel</button>
+            <button onclick="downloadWord()" class="download-btn word">📄 Word</button>
+            <button onclick="window.print()" class="download-btn print">🖨️ Print</button>
+        </div>
     </div>
-    <button type="submit">Submit</button>
-  </form>
 
-  <h2>Results Table</h2>
-  <div id="results-container">
-    <table id="results-table">
-      <thead>
-        <tr>
-          <th>Pos</th>
-          <th>Name</th>
-          <th>English</th>
-          <th>Kiswahili</th>
-          <th>Math</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-      </tbody>
-    </table>
-  </div>
-
-  <div>
-    <button id="download-excel">Download Excel</button>
-    <button id="print">Print</button>
-  </div>
-
-  <script src="xlsx.mini.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
-<footer>
-  <h3>Designed by Mwalimu Samie &copy2025</h3>
-  <h4>Buy me coffee mpesa 0706498902</h4>
-</footer>
 </html>
