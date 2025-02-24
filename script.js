@@ -101,56 +101,95 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
-/* Grading Configuration Section */
-.grading-config {
-    margin-bottom: 25px;
-    padding: 20px;
-    background: #f8f9fa;
-    border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+let subjects = ['MATHEMATICS', 'ENGLISH', 'KISWAHILI'];
+let learners = [];
+let nextId = 1;
+let schoolName = '';
+let term = '';
+let year = '';
+
+// Grading configuration
+let gradingRanges = {
+    exceeding: { min: 90, max: 100 },
+    meeting: { min: 70, max: 89 },
+    approaching: { min: 50, max: 69 },
+    below: { min: 0, max: 49 }
+};
+
+// Update grading configuration
+function updateGradingConfig() {
+    gradingRanges.exceeding.min = parseInt(document.getElementById('exceedingMin').value) || 90;
+    gradingRanges.exceeding.max = parseInt(document.getElementById('exceedingMax').value) || 100;
+    gradingRanges.meeting.min = parseInt(document.getElementById('meetingMin').value) || 70;
+    gradingRanges.meeting.max = parseInt(document.getElementById('meetingMax').value) || 89;
+    gradingRanges.approaching.min = parseInt(document.getElementById('approachingMin').value) || 50;
+    gradingRanges.approaching.max = parseInt(document.getElementById('approachingMax').value) || 69;
+    gradingRanges.below.min = parseInt(document.getElementById('belowMin').value) || 0;
+    gradingRanges.below.max = parseInt(document.getElementById('belowMax').value) || 49;
+
+    updateTable(); // Refresh table to apply new grading
 }
 
-.grading-config h2 {
-    color: #4a47a3;
-    margin-bottom: 15px;
-    font-size: 1.5em;
+// Get grade based on score
+function getGrade(score) {
+    if (score >= gradingRanges.exceeding.min && score <= gradingRanges.exceeding.max) {
+        return 'Exceeding Expectations';
+    } else if (score >= gradingRanges.meeting.min && score <= gradingRanges.meeting.max) {
+        return 'Meeting Expectations';
+    } else if (score >= gradingRanges.approaching.min && score <= gradingRanges.approaching.max) {
+        return 'Approaching Expectations';
+    } else {
+        return 'Below Expectations';
+    }
 }
 
-.grade-range {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-    align-items: center;
+// Update table headers to include grade columns
+function updateTableHeaders() {
+    const headerRow = document.getElementById('tableHeader');
+    if (headerRow) {
+        headerRow.innerHTML = `
+            <th>Rank</th>
+            <th>Name</th>
+            ${subjects.map(subject => `
+                <th>${subject}</th>
+                <th>${subject} Grade</th>
+            `).join('')}
+            <th>Total</th>
+            <th>Actions</th>
+        `;
+    }
 }
 
-.grade-range label {
-    font-weight: bold;
-    color: #2d3436;
-}
+// Update the table with learner data and grades
+function updateTable() {
+    const tbody = document.querySelector('#recordsTable tbody');
+    if (!tbody) return;
 
-.grade-range input {
-    padding: 8px;
-    border: 2px solid #6c5ce7;
-    border-radius: 5px;
-    flex-grow: 1;
-    font-size: 1em;
-    background: #ffffff;
-    color: #2d3436;
-}
+    tbody.innerHTML = '';
 
-.grading-config button {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.3s ease;
-    font-size: 1.1em;
-    background-color: #6c5ce7;
-    color: white;
-}
+    // Sort learners and calculate ranks
+    const sorted = [...learners].sort((a, b) => b.total - a.total);
+    sorted.forEach((learner, index) => {
+        learner.rank = (index > 0 && learner.total === sorted[index - 1].total)
+            ? sorted[index - 1].rank
+            : index + 1;
+    });
 
-.grading-config button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
+    sorted.forEach(learner => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${learner.rank}</td>
+            <td>${learner.name}</td>
+            ${subjects.map(subject => `
+                <td>${learner.scores[subject]}</td>
+                <td>${getGrade(learner.scores[subject])}</td>
+            `).join('')}
+            <td>${learner.total}</td>
+            <td>
+                <button class="edit-btn" onclick="editLearner(${learner.id})">✏️ Edit</button>
+                <button class="delete-btn" onclick="deleteLearner(${learner.id})">🗑️ Delete</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+                                         }
