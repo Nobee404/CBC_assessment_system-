@@ -1,1 +1,1052 @@
-                               }
+                               (() => {
+  'use strict';
+
+  // Store data
+  const lsKey = 'school-assessment-data-v3';
+  let appData = {
+    schoolDetails: { schoolName: '', term: '', year: '', grade: '' },
+    learners: [], // {id, name}
+    subjects: [], // {id, name}
+    scores: {},   // learnerId_subjectId: score
+    rubric: [
+      { min: 90, max: 100, grade: 'EE1', description: 'Excellent' },
+      { min: 75, max: 89, grade: 'EE2', description: 'Good' },
+      { min: 58, max: 74, grade: 'ME1', description: 'Satisfactory' },
+      { min: 41, max: 57, grade: 'ME2', description: 'Passing' },
+      { min: 31, max: 40, grade: 'AE1', description: 'Fail' }, 
+      { min: 21, max: 30, grade: 'AE2' }, 
+      { min: 11, max: 20, grade: 'BE1' },
+      { min: 1, max: 10, grade: 'BE2' }, 
+    ]
+  };
+
+  // DOM elements
+  const dom = {
+    schoolForm: document.getElementById('school-form'),
+    schoolNameInput: document.getElementById('school-name'),
+    termSelect: document.getElementById('term'),
+    yearInput: document.getElementById('year'),
+    gradeInput: document.getElementById('grade'),
+    schoolError: document.getElementById('school-error'),
+    learnersSearch: document.getElementById('learners-search'),
+    learnersTbody: document.getElementById('learners-tbody'),
+    openAddLearnerModalBtn: document.getElementById('open-add-learner-modal'),
+    importLearnersBtn: document.getElementById('import-learners-btn'),
+    importLearnersFileInput: document.getElementById('import-learners-file'),
+    exportLearnersBtn: document.getElementById('export-learners-btn'),
+    learnersPagination: document.getElementById('learners-pagination'),
+    addLearnerModal: document.getElementById('modal-add-learner'),
+    addLearnerForm: document.getElementById('add-learner-form'),
+    newLearnerNameInput: document.getElementById('new-learner-name'),
+    subjectsSearch: document.getElementById('subjects-search'),
+    subjectsTbody: document.getElementById('subjects-tbody'),
+    openAddSubjectModalBtn: document.getElementById('open-add-subject-modal'),
+    importSubjectsBtn: document.getElementById('import-subjects-btn'),
+    importSubjectsFileInput: document.getElementById('import-subjects-file'),
+    exportSubjectsBtn: document.getElementById('export-subjects-btn'),
+    subjectsPagination: document.getElementById('subjects-pagination'),
+    addSubjectModal: document.getElementById('modal-add-subject'),
+    addSubjectForm: document.getElementById('add-subject-form'),
+    newSubjectNameInput: document.getElementById('new-subject-name'),
+    openCustomRubricModalBtn: document.getElementById('open-custom-rubric-modal'),
+    customRubricModal: document.getElementById('modal-custom-rubric'),
+    rubricEntriesContainer: document.getElementById('rubric-entries-container'),
+    addRubricEntryBtn: document.getElementById('add-rubric-entry-btn'),
+    customRubricForm: document.getElementById('custom-rubric-form'),
+    rubricErrorMsg: document.getElementById('rubric-error'),
+    scoresThead: document.getElementById('scores-thead'),
+    scoresTbody: document.getElementById('scores-tbody'),
+    resultsThead: document.getElementById('results-thead'),
+    resultsTbody: document.getElementById('results-tbody'),
+    generateResultsBtn: document.getElementById('generate-results-btn'),
+    downloadFormat: document.getElementById('download-format'),
+    downloadGradeBtn: document.getElementById('download-grade-btn'),
+    learnerSelect: document.getElementById('learner-select'),
+    downloadLearnerWordBtn: document.getElementById('download-learner-word'),
+    downloadLearnerPdfBtn: document.getElementById('download-learner-pdf'),
+    downloadLearnerExcelBtn: document.getElementById('download-learner-excel'),
+    gradeDistCanvas: document.getElementById('gradeDistributionChart'),
+    avgScoresCanvas: document.getElementById('averageScoresChart'),
+    loading: document.getElementById('loading')
+  };
+
+  // Helpers
+  const uniqueId = (() => {
+    let id = 0;
+    return () => (++id).toString();
+  })();
+
+  function debounce(fn, delay) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), delay);
+    };
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/[&<>"']/g, m => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&apos;'
+    })[m]);
+  }
+
+  function showLoading(show) {
+    dom.loading.classList.toggle('active', show);
+  }
+
+  // Save and load data
+  function saveAppData() {
+    try {
+      localStorage.setItem(lsKey, JSON.stringify(appData));
+    } catch (e) {
+      alert('Failed to save data. Storage may be full.');
+    }
+  }
+
+  function loadAppData() {
+    try {
+      const data = localStorage.getItem(lsKey);
+      if (data) Object.assign(appData, JSON.parse(data));
+    } catch (e) {
+      alert('Failed to load data. Using defaults.');
+    }
+  }
+
+  // School details
+  function fillSchoolForm() {
+    dom.schoolNameInput.value = appData.schoolDetails.schoolName;
+    dom.termSelect.value = appData.schoolDetails.term;
+    dom.yearInput.value = appData.schoolDetails.year;
+    dom.gradeInput.value = appData.schoolDetails.grade;
+  }
+
+  function validateSchoolForm() {
+    dom.schoolError.textContent = '';
+    dom.schoolError.classList.add('sr-only');
+    if (!dom.schoolNameInput.value.trim()) {
+      dom.schoolError.textContent = 'School name is required.';
+      dom.schoolError.classList.remove('sr-only');
+      return false;
+    }
+    if (!dom.termSelect.value) {
+      dom.schoolError.textContent = 'Term is required.';
+      dom.schoolError.classList.remove('sr-only');
+      return false;
+    }
+    if (!dom.yearInput.value || dom.yearInput.value < 2000 || dom.yearInput.value > 2099) {
+      dom.schoolError.textContent = 'Year must be between 2000 and 2099.';
+      dom.schoolError.classList.remove('sr-only');
+      return false;
+    }
+    if (!dom.gradeInput.value || dom.gradeInput.value < 1 || dom.gradeInput.value > 12) {
+      dom.schoolError.textContent = 'Grade must be between 1 and 12.';
+      dom.schoolError.classList.remove('sr-only');
+      return false;
+    }
+    return true;
+  }
+
+  function saveSchoolForm() {
+    if (!validateSchoolForm()) return;
+    appData.schoolDetails = {
+      schoolName: dom.schoolNameInput.value.trim(),
+      term: dom.termSelect.value,
+      year: dom.yearInput.value.trim(),
+      grade: dom.gradeInput.value.trim()
+    };
+    saveAppData();
+  }
+
+  dom.schoolForm.addEventListener('submit', e => {
+    e.preventDefault();
+    saveSchoolForm();
+  });
+  dom.schoolNameInput.addEventListener('input', debounce(saveSchoolForm, 300));
+  dom.termSelect.addEventListener('change', saveSchoolForm);
+  dom.yearInput.addEventListener('input', debounce(saveSchoolForm, 300));
+  dom.gradeInput.addEventListener('input', debounce(saveSchoolForm, 300));
+
+  // Learners
+  let learnersFiltered = [];
+  let learnersPage = 1;
+  const learnersPerPage = 15;
+
+  function filterAndRenderLearners() {
+    const query = dom.learnersSearch.value.trim().toLowerCase();
+    learnersFiltered = appData.learners.filter(l => l.name.toLowerCase().includes(query));
+    learnersPage = 1;
+    debouncedRenderLearnersPage();
+  }
+
+  function renderLearnersPage() {
+    dom.learnersTbody.innerHTML = '';
+    if (!learnersFiltered.length) {
+      dom.learnersTbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">No learners found.</td></tr>';
+      renderLearnersPagination();
+      debouncedRenderScoresTable();
+      return;
+    }
+    const start = (learnersPage - 1) * learnersPerPage;
+    const end = start + learnersPerPage;
+    learnersFiltered.slice(start, end).forEach(l => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(l.name)}</td>
+        <td><button type="button" class="material-icons" style="color: #e11d48; background: none; border: none;">delete</button></td>
+      `;
+      tr.querySelector('button').addEventListener('click', () => {
+        if (confirm(`Remove learner "${l.name}"?`)) removeLearnerById(l.id);
+      });
+      dom.learnersTbody.appendChild(tr);
+    });
+    renderLearnersPagination();
+    debouncedRenderScoresTable();
+  }
+
+  function renderLearnersPagination() {
+    dom.learnersPagination.innerHTML = '';
+    const pages = Math.ceil(learnersFiltered.length / learnersPerPage);
+    if (pages <= 1) return;
+    const buttons = [
+      { label: 'First', disabled: learnersPage === 1, cb: () => { learnersPage = 1; renderLearnersPage(); } },
+      { label: 'Prev', disabled: learnersPage === 1, cb: () => { if (learnersPage > 1) learnersPage--; renderLearnersPage(); } },
+      { label: `Page ${learnersPage} of ${pages}`, disabled: true },
+      { label: 'Next', disabled: learnersPage === pages, cb: () => { if (learnersPage < pages) learnersPage++; renderLearnersPage(); } },
+      { label: 'Last', disabled: learnersPage === pages, cb: () => { learnersPage = pages; renderLearnersPage(); } }
+    ];
+    buttons.forEach(({ label, disabled, cb }) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.disabled = disabled;
+      if (cb) btn.addEventListener('click', cb);
+      dom.learnersPagination.appendChild(btn);
+    });
+  }
+
+  function addLearner(name) {
+    name = name.trim();
+    if (!name) { alert('Learner name is required.'); return false; }
+    if (appData.learners.some(l => l.name.toLowerCase() === name.toLowerCase())) {
+      alert(`Learner "${name}" already exists.`);
+      return false;
+    }
+    appData.learners.push({ id: uniqueId(), name });
+    saveAppData();
+    filterAndRenderLearners();
+    updateLearnerSelect();
+    return true;
+  }
+
+  function removeLearnerById(id) {
+    appData.learners = appData.learners.filter(l => l.id !== id);
+    for (const key in appData.scores) {
+      if (key.startsWith(id + '_')) delete appData.scores[key];
+    }
+    saveAppData();
+    filterAndRenderLearners();
+    updateLearnerSelect();
+    updateResultsTable(false);
+  }
+
+  dom.learnersSearch.addEventListener('input', debounce(filterAndRenderLearners, 300));
+
+  // Subjects
+  let subjectsFiltered = [];
+  let subjectsPage = 1;
+  const subjectsPerPage = 10;
+
+  function filterAndRenderSubjects() {
+    const query = dom.subjectsSearch.value.trim().toLowerCase();
+    subjectsFiltered = appData.subjects.filter(s => s.name.toLowerCase().includes(query));
+    subjectsPage = 1;
+    debouncedRenderSubjectsPage();
+  }
+
+  function renderSubjectsPage() {
+    dom.subjectsTbody.innerHTML = '';
+    if (!subjectsFiltered.length) {
+      dom.subjectsTbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">No subjects found.</td></tr>';
+      renderSubjectsPagination();
+      debouncedRenderScoresTable();
+      return;
+    }
+    const start = (subjectsPage - 1) * subjectsPerPage;
+    const end = start + subjectsPerPage;
+    subjectsFiltered.slice(start, end).forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(s.name)}</td>
+        <td><button type="button" class="material-icons" style="color: #e11d48; background: none; border: none;">delete</button></td>
+      `;
+      tr.querySelector('button').addEventListener('click', () => {
+        if (confirm(`Remove subject "${s.name}"?`)) removeSubjectById(s.id);
+      });
+      dom.subjectsTbody.appendChild(tr);
+    });
+    renderSubjectsPagination();
+    debouncedRenderScoresTable();
+  }
+
+  function renderSubjectsPagination() {
+    dom.subjectsPagination.innerHTML = '';
+    const pages = Math.ceil(subjectsFiltered.length / subjectsPerPage);
+    if (pages <= 1) return;
+    const buttons = [
+      { label: 'First', disabled: subjectsPage === 1, cb: () => { subjectsPage = 1; renderSubjectsPage(); } },
+      { label: 'Prev', disabled: subjectsPage === 1, cb: () => { if (subjectsPage > 1) subjectsPage--; renderSubjectsPage(); } },
+      { label: `Page ${subjectsPage} of ${pages}`, disabled: true },
+      { label: 'Next', disabled: subjectsPage === pages, cb: () => { if (subjectsPage < pages) subjectsPage++; renderSubjectsPage(); } },
+      { label: 'Last', disabled: subjectsPage === pages, cb: () => { subjectsPage = pages; renderSubjectsPage(); } }
+    ];
+    buttons.forEach(({ label, disabled, cb }) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.disabled = disabled;
+      if (cb) btn.addEventListener('click', cb);
+      dom.subjectsPagination.appendChild(btn);
+    });
+  }
+
+  function addSubject(name) {
+    name = name.trim();
+    if (!name) { alert('Subject name is required.'); return false; }
+    if (appData.subjects.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+      alert(`Subject "${name}" already exists.`);
+      return false;
+    }
+    appData.subjects.push({ id: uniqueId(), name });
+    saveAppData();
+    filterAndRenderSubjects();
+    debouncedRenderScoresTable();
+    if (resultsData.length) {
+      alert(`New subject "${name}" added. Enter scores for accurate results.`);
+      generateResults();
+    }
+    return true;
+  }
+
+  function removeSubjectById(id) {
+    appData.subjects = appData.subjects.filter(s => s.id !== id);
+    for (const key in appData.scores) {
+      if (key.endsWith('_' + id)) delete appData.scores[key];
+    }
+    saveAppData();
+    filterAndRenderSubjects();
+    debouncedRenderScoresTable();
+    updateResultsTable(false);
+  }
+
+  dom.subjectsSearch.addEventListener('input', debounce(filterAndRenderSubjects, 300));
+
+  // Modals
+  function openModal(modal) {
+    modal.classList.add('active');
+    document.body.classList.add('modal-open');
+    modal.querySelector('input')?.focus();
+  }
+
+  function closeModal(modal, form) {
+    if (form && form.querySelector('input:invalid')) {
+      if (!confirm('Close without saving?')) return;
+    }
+    modal.classList.remove('active');
+    document.body.classList.remove('modal-open');
+  }
+
+  dom.openAddLearnerModalBtn.addEventListener('click', () => openModal(dom.addLearnerModal));
+  dom.addLearnerModal.querySelector('.close-btn').addEventListener('click', () => closeModal(dom.addLearnerModal, dom.addLearnerForm));
+  dom.addLearnerForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const val = dom.newLearnerNameInput.value.trim();
+    if (addLearner(val)) {
+      dom.addLearnerForm.reset();
+      closeModal(dom.addLearnerModal);
+    }
+  });
+
+  dom.openAddSubjectModalBtn.addEventListener('click', () => openModal(dom.addSubjectModal));
+  dom.addSubjectModal.querySelector('.close-btn').addEventListener('click', () => closeModal(dom.addSubjectModal, dom.addSubjectForm));
+  dom.addSubjectForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = dom.newSubjectNameInput.value.trim();
+    if (addSubject(name)) {
+      dom.addSubjectForm.reset();
+      closeModal(dom.addSubjectModal);
+    }
+  });
+
+  dom.openCustomRubricModalBtn.addEventListener('click', () => {
+    renderRubric();
+    openModal(dom.customRubricModal);
+  });
+  dom.customRubricModal.querySelector('.close-btn').addEventListener('click', () => closeModal(dom.customRubricModal, dom.customRubricForm));
+
+  function renderRubric() {
+    dom.rubricEntriesContainer.innerHTML = '';
+    appData.rubric.forEach((entry, i) => {
+      dom.rubricEntriesContainer.appendChild(createRubricEntry(entry, i));
+    });
+    updateRubricError('');
+  }
+
+  function createRubricEntry(entry, i) {
+    const div = document.createElement('div');
+    div.style.display = 'grid';
+    div.style.gridTemplateColumns = '4rem 4rem 4rem 1fr 2rem';
+    div.style.gap = '0.5rem';
+    div.style.marginBottom = '0.5rem';
+    div.style.alignItems = 'center';
+    const inputs = [
+      { type: 'number', min: 0, max: 100, value: entry.min, placeholder: 'Min' },
+      { type: 'number', min: 0, max: 100, value: entry.max, placeholder: 'Max' },
+      { type: 'text', maxLength: 2, value: entry.grade, placeholder: 'Grade' },
+      { type: 'text', value: entry.description, placeholder: 'Description' }
+    ].map(({ type, min, max, maxLength, value, placeholder }) => {
+      const input = document.createElement('input');
+      input.type = type;
+      if (min !== undefined) input.min = min;
+      if (max !== undefined) input.max = max;
+      if (maxLength) input.maxLength = maxLength;
+      input.value = value;
+      input.placeholder = placeholder;
+      input.required = true;
+      return input;
+    });
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '✕';
+    removeBtn.style.background = 'none';
+    removeBtn.style.color = '#e11d48';
+    removeBtn.style.padding = '0';
+    removeBtn.style.minWidth = '24px';
+    removeBtn.addEventListener('click', () => div.remove());
+    div.append(...inputs, removeBtn);
+    return div;
+  }
+
+  dom.addRubricEntryBtn.addEventListener('click', () => {
+    dom.rubricEntriesContainer.appendChild(createRubricEntry({ min: 0, max: 0, grade: '', description: '' }, dom.rubricEntriesContainer.children.length));
+  });
+
+  dom.customRubricForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const entries = [];
+    let hasError = false;
+
+    for (const div of dom.rubricEntriesContainer.children) {
+      const [minInput, maxInput, gradeInput, descInput] = div.querySelectorAll('input');
+      const min = Number(minInput.value);
+      const max = Number(maxInput.value);
+      const grade = gradeInput.value.trim();
+      const desc = descInput.value.trim();
+
+      // Validate inputs
+      if (isNaN(min) || isNaN(max) || !grade || !desc) {
+        updateRubricError('All fields are required.');
+        hasError = true;
+        break;
+      }
+      if (min < 0 || min > 100 || max < 0 || max > 100) {
+        updateRubricError('Min and max must be between 0 and 100.');
+        hasError = true;
+        break;
+      }
+      if (min > max) {
+        updateRubricError('Min must be less than or equal to max.');
+        hasError = true;
+        break;
+      }
+      if (grade.length > 3) {
+        updateRubricError('Grade should be 1-3 characters max.');
+        hasError = true;
+        break;
+      }
+
+      entries.push({ min, max, grade, description: desc });
+    }
+
+    if (hasError) return;
+
+    // Sort by min score
+    entries.sort((a, b) => a.min - b.min);
+
+    // Check for overlaps and gaps
+    for (let i = 1; i < entries.length; i++) {
+      if (entries[i].min <= entries[i-1].max) {
+        updateRubricError('Ranges must not overlap.');
+        return;
+      }
+      if (entries[i].min !== entries[i-1].max + 1) {
+        updateRubricError('Ranges must be continuous with no gaps.');
+        return;
+      }
+    }
+
+    // Check coverage
+    if (entries[0].min !== 0 || entries[entries.length-1].max !== 100) {
+      updateRubricError('Rubric must cover all scores from 0 to 100.');
+      return;
+    }
+
+    appData.rubric = entries;
+    saveAppData();
+    updateRubricError('');
+    alert('Rubric saved successfully.');
+    closeModal(dom.customRubricModal);
+    if (resultsData.length) generateResults();
+  });
+
+  function updateRubricError(msg = '') {
+    dom.rubricErrorMsg.style.display = msg ? 'block' : 'none';
+    dom.rubricErrorMsg.textContent = msg;
+  }
+
+  // Scores
+  const debouncedRenderScoresTable = debounce(renderScoresTable, 500);
+  function renderScoresTable() {
+    dom.scoresThead.innerHTML = '';
+    dom.scoresTbody.innerHTML = '';
+    if (!appData.learners.length || !appData.subjects.length) {
+      dom.scoresTbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Add learners and subjects.</td></tr>';
+      return;
+    }
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = '<th style="min-width:160px;">Learner \\ Subject</th>' +
+      appData.subjects.map(s => `<th>${escapeHtml(s.name)}</th>`).join('');
+    dom.scoresThead.appendChild(headerRow);
+    appData.learners.forEach(learner => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="text-align:left">${escapeHtml(learner.name)}</td>` +
+        appData.subjects.map(subj => {
+          const score = appData.scores[learner.id + '_' + subj.id] ?? '';
+          return `<td><input type="number" min="0" max="100" class="score-input" value="${score}"></td>`;
+        }).join('');
+      tr.querySelectorAll('input').forEach((input, i) => {
+        const subj = appData.subjects[i];
+        input.addEventListener('input', e => {
+          let val = e.target.value.trim();
+          if (val === '') {
+            delete appData.scores[learner.id + '_' + subj.id];
+            saveAppData();
+            updateResultsTable(false);
+            return;
+          }
+          val = Number(val);
+          if (isNaN(val) || val < 0 || val > 100) {
+            e.target.setCustomValidity(`Score must be between 0 and 100.`);
+            e.target.reportValidity();
+            e.target.value = '';
+            delete appData.scores[learner.id + '_' + subj.id];
+            saveAppData();
+            updateResultsTable(false);
+            return;
+          }
+          e.target.setCustomValidity('');
+          appData.scores[learner.id + '_' + subj.id] = val;
+          saveAppData();
+          updateResultsTable(false);
+        });
+      });
+      dom.scoresTbody.appendChild(tr);
+    });
+  }
+
+  // Results
+  let resultsData = [];
+  function gradeScore(score) {
+    if (score === undefined || isNaN(score)) return '';
+    for (const rule of appData.rubric) {
+      if (score >= rule.min && score <= rule.max) return rule.grade;
+    }
+    return '';
+  }
+
+  function generateResults() {
+    if (!appData.learners.length || !appData.subjects.length) {
+      alert('Add at least one learner and subject.');
+      return false;
+    }
+
+    resultsData = appData.learners.map(learner => {
+      let totalScore = 0;
+      const subjectGrades = {};
+
+      for (const subj of appData.subjects) {
+        const rawScore = appData.scores[learner.id + '_' + subj.id] ?? 0;
+        totalScore += rawScore;
+        subjectGrades[subj.id] = {
+          score: Math.round(rawScore),
+          grade: gradeScore(rawScore)
+        };
+      }
+
+      return {
+        learnerId: learner.id,
+        learnerName: learner.name,
+        subjectGrades,
+        totalScore: Math.round(totalScore),
+        rank: null
+      };
+    });
+
+    // Check for missing scores
+    for (const learner of appData.learners) {
+      for (const subj of appData.subjects) {
+        if (appData.scores[learner.id + '_' + subj.id] === undefined) {
+          if (!confirm(`Score missing for ${learner.name} in ${subj.name}. Treat as zero?`)) {
+            return false;
+          }
+        }
+      }
+    }
+
+    // Sort and rank
+    resultsData.sort((a, b) => b.totalScore - a.totalScore);
+    let lastScore = null, lastRank = 0;
+    resultsData.forEach((res, i) => {
+      if (lastScore === null || res.totalScore < lastScore) lastRank = i + 1;
+      res.rank = lastRank;
+      lastScore = res.totalScore;
+    });
+
+    updateResultsTable(true);
+    updateDownloadControls(true);
+    updateCharts();
+    return true;
+  }
+
+  dom.generateResultsBtn.addEventListener('click', () => {
+    showLoading(true);
+    setTimeout(() => {
+      generateResults();
+      showLoading(false);
+    }, 100);
+  });
+
+  function updateResultsTable(hasData) {
+    dom.resultsThead.innerHTML = '';
+    dom.resultsTbody.innerHTML = '';
+    if (!hasData || !resultsData.length) {
+      dom.resultsTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No results generated.</td></tr>';
+      updateDownloadControls(false);
+      return;
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<th>Rank</th><th>Learner Name</th>' +
+      appData.subjects.map(s => `<th>${escapeHtml(s.name)} (Score  Grade)</th>`).join('') +
+      '<th>Total Score</th>';
+    dom.resultsThead.appendChild(tr);
+    resultsData.forEach(res => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${res.rank}</td>
+        <td style="text-align:left">${escapeHtml(res.learnerName)}</td>
+        ${appData.subjects.map(subj => {
+          const { score, grade } = res.subjectGrades[subj.id] || {};
+          return `<td>${score !== undefined ? `${score} - ${grade}` : '-'}</td>`;
+        }).join('')}
+        <td>${res.totalScore}</td>
+      `;
+      dom.resultsTbody.appendChild(tr);
+    });
+    updateLearnerSelect();
+  }
+
+  function updateDownloadControls(enabled) {
+    dom.downloadGradeBtn.disabled = !enabled;
+    dom.learnerSelect.disabled = !enabled || !appData.learners.length;
+    dom.downloadLearnerWordBtn.disabled = !enabled || !dom.learnerSelect.value;
+    dom.downloadLearnerPdfBtn.disabled = !enabled || !dom.learnerSelect.value;
+    dom.downloadLearnerExcelBtn.disabled = !enabled || !dom.learnerSelect.value;
+  }
+
+  function updateLearnerSelect() {
+    dom.learnerSelect.innerHTML = '<option value="">Select learner</option>';
+    appData.learners.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.id;
+      opt.textContent = l.name;
+      dom.learnerSelect.appendChild(opt);
+    });
+    updateDownloadControls(resultsData.length > 0);
+  }
+
+  dom.learnerSelect.addEventListener('change', () => {
+    const enabled = dom.learnerSelect.value !== '';
+    dom.downloadLearnerWordBtn.disabled = !enabled;
+    dom.downloadLearnerPdfBtn.disabled = !enabled;
+    dom.downloadLearnerExcelBtn.disabled = !enabled;
+  });
+
+  // Downloads
+  function generateResultContent(forLearnerId = null) {
+    const sd = appData.schoolDetails;
+    let html = `
+      <h1>School Assessment Results</h1>
+      <p><strong>School:</strong> ${escapeHtml(sd.schoolName || 'N/A')}</p>
+      <p><strong>Term:</strong> ${escapeHtml(sd.term || 'N/A')}</p>
+      <p><strong>Year:</strong> ${escapeHtml(sd.year || 'N/A')}</p>
+      <p><strong>Grade:</strong> ${escapeHtml(sd.grade || 'N/A')}</p>
+      <hr>
+    `;
+    let table = '<table border="1" style="border-collapse: collapse; width: 100%;">';
+    if (forLearnerId) {
+      const res = resultsData.find(r => r.learnerId === forLearnerId);
+      if (!res) return html + '<p>No results for selected learner.</p>';
+      table += '<thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead><tbody>';
+      appData.subjects.forEach(subj => {
+        const { score, grade } = res.subjectGrades[subj.id] || {};
+        table += `<tr><td>${escapeHtml(subj.name)}</td><td>${score ?? '-'}</td><td>${grade ?? '-'}</td></tr>`;
+      });
+      table += `<tr><td><strong>Total Score</strong></td><td colspan="2">${res.totalScore}</td></tr>`;
+    } else {
+      table += '<thead><tr><th>Rank</th><th>Learner Name</th>' +
+        appData.subjects.map(s => `<th>${escapeHtml(s.name)}</th>`).join('') +
+        '<th>Total Score</th></tr></thead><tbody>';
+      resultsData.forEach(res => {
+        table += `<tr><td>${res.rank}</td><td>${escapeHtml(res.learnerName)}</td>` +
+          appData.subjects.map(subj => {
+            const { score, grade } = res.subjectGrades[subj.id] || {};
+            return `<td>${score !== undefined ? `${score} - ${grade}` : '-'}</td>`;
+          }).join('') + `<td>${res.totalScore}</td></tr>`;
+      });
+    }
+    table += '</tbody></table>';
+    return html + table;
+  }
+
+  function downloadWord(forLearnerId = null) {
+    showLoading(true);
+    const content = generateResultContent(forLearnerId);
+    const blob = new Blob([`\ufeff<html><head><meta charset="utf-8"></head><body>${content}</body></html>`],
+      { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = forLearnerId ?
+      `results_${resultsData.find(r => r.learnerId === forLearnerId)?.learnerName.replace(/\s+/g, '_')}.doc` :
+      'results_grade.doc';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showLoading(false);
+  }
+
+  async function downloadPdf(forLearnerId = null) {
+    showLoading(true);
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const content = generateResultContent(forLearnerId);
+
+      // Create temporary div for rendering
+      const div = document.createElement('div');
+      div.style.position = 'absolute';
+      div.style.left = '-9999px';
+      div.style.width = '600px';
+      div.innerHTML = content;
+      document.body.appendChild(div);
+
+      // Wait for HTML to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      await doc.html(div, {
+        callback: (doc) => {
+          doc.save(
+            forLearnerId ?
+            `results_${resultsData.find(r => r.learnerId === forLearnerId)?.learnerName.replace(/\s+/g, '_')}.pdf` :
+            'results_grade.pdf'
+          );
+          document.body.removeChild(div);
+          showLoading(false);
+        },
+        x: 15,
+        y: 15,
+        width: 170,
+        windowWidth: 600
+      });
+    } catch (e) {
+      console.error('PDF generation error:', e);
+      alert('Error generating PDF. Please try again.');
+      showLoading(false);
+    }
+  }
+
+  function downloadExcel(forLearnerId = null) {
+    showLoading(true);
+    const wb = XLSX.utils.book_new();
+    const sd = appData.schoolDetails;
+    const rows = [
+      ['School Assessment Results'],
+      [`School: ${sd.schoolName || 'N/A'}`],
+      [`Term: ${sd.term || 'N/A'}`],
+      [`Year: ${sd.year || 'N/A'}`],
+      [`Grade: ${sd.grade || 'N/A'}`],
+      []
+    ];
+    if (forLearnerId) {
+      const res = resultsData.find(r => r.learnerId === forLearnerId);
+      if (!res) {
+        alert('No results for learner.');
+        showLoading(false);
+        return;
+      }
+      rows.push(['Subject', 'Score', 'Grade']);
+      appData.subjects.forEach(subj => {
+        const { score, grade } = res.subjectGrades[subj.id] || {};
+        rows.push([subj.name, score ?? '-', grade ?? '-']);
+      });
+      rows.push(['Total Score', res.totalScore]);
+    } else {
+      rows.push(['Rank', 'Learner Name', ...appData.subjects.map(s => s.name), 'Total Score']);
+      resultsData.forEach(res => {
+        const row = [res.rank, res.learnerName];
+        appData.subjects.forEach(subj => {
+          const { score, grade } = res.subjectGrades[subj.id] || {};
+          row.push(`${score !== undefined ? `${score} - ${grade}` : '-'}`);
+        });
+        row.push(res.totalScore);
+        rows.push(row);
+      });
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Results');
+    const fileName = forLearnerId ?
+      `results_${resultsData.find(r => r.learnerId === forLearnerId)?.learnerName.replace(/\s+/g, '_')}.xlsx` :
+      'results_grade.xlsx';
+    XLSX.writeFile(wb, fileName);
+    showLoading(false);
+  }
+
+  dom.downloadGradeBtn.addEventListener('click', () => {
+    const fmt = dom.downloadFormat.value;
+    if (!fmt) {
+      alert('Select a format.');
+      return;
+    }
+    if (fmt === 'word') downloadWord();
+    else if (fmt === 'pdf') downloadPdf();
+    else if (fmt === 'excel') downloadExcel();
+  });
+
+  dom.downloadLearnerWordBtn.addEventListener('click', () => {
+    const lid = dom.learnerSelect.value;
+    if (!lid) { alert('Select a learner.'); return; }
+    downloadWord(lid);
+  });
+
+  dom.downloadLearnerPdfBtn.addEventListener('click', () => {
+    const lid = dom.learnerSelect.value;
+    if (!lid) { alert('Select a learner.'); return; }
+    downloadPdf(lid);
+  });
+
+  dom.downloadLearnerExcelBtn.addEventListener('click', () => {
+    const lid = dom.learnerSelect.value;
+    if (!lid) { alert('Select a learner.'); return; }
+    downloadExcel(lid);
+  });
+
+  // Analytics
+  let gradeDistChart = null;
+  let avgScoresChart = null;
+  function updateCharts() {
+    if (!resultsData.length || !appData.subjects.length) {
+      if (gradeDistChart) {
+        gradeDistChart.destroy();
+        gradeDistChart = null;
+      }
+      if (avgScoresChart) {
+        avgScoresChart.destroy();
+        avgScoresChart = null;
+      }
+      return;
+    }
+    const gradeCounts = {};
+    appData.rubric.forEach(r => gradeCounts[r.grade] = 0);
+    resultsData.forEach(res => {
+      const grd = gradeScore(res.totalScore / appData.subjects.length); // Average score for grading
+      if (grd) gradeCounts[grd]++;
+    });
+    const labels = Object.keys(gradeCounts);
+    const data = Object.values(gradeCounts);
+    if (gradeDistChart) gradeDistChart.destroy();
+    gradeDistChart = new Chart(dom.gradeDistCanvas, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Grade Distribution',
+          data,
+          backgroundColor: ['#10b981', '#3b82f6', '#facc15', '#f97316', '#ef4444'],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: { display: true, text: 'Grade Distribution (Based on Average Score)' }
+        }
+      }
+    });
+
+    const averages = appData.subjects.map(subj => {
+      let sum = 0, count = 0;
+      resultsData.forEach(res => {
+        const score = res.subjectGrades[subj.id]?.score;
+        if (score !== undefined) {
+          sum += score;
+          count++;
+        }
+      });
+      return count ? Math.round(sum / count) : 0;
+    });
+    if (avgScoresChart) avgScoresChart.destroy();
+    avgScoresChart = new Chart(dom.avgScoresCanvas, {
+      type: 'bar',
+      data: {
+        labels: appData.subjects.map(s => s.name),
+        datasets: [{
+          label: 'Average Score',
+          data: averages,
+          backgroundColor: '#4f46e5'
+        }]
+      },
+      options: {
+        scales: { y: { beginAtZero: true, max: 100 } },
+        plugins: { legend: { display: false }, title: { display: true, text: 'Average Scores by Subject' } }
+      }
+    });
+  }
+
+  // CSV import/export
+  dom.importLearnersBtn.addEventListener('click', () => dom.importLearnersFileInput.click());
+  dom.importLearnersFileInput.addEventListener('change', e => {
+    if (!e.target.files.length) return;
+    showLoading(true);
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const lines = reader.result.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        let added = 0;
+        lines.forEach(line => {
+          const name = line.replace(/^"|"$/g, '').replace(/""/g, '"').trim();
+          if (!name) return;
+          if (addLearner(name)) added++;
+        });
+        alert(`Imported ${added} learners.`);
+      } catch (e) {
+        alert('Error processing CSV file. Please check the format.');
+      } finally {
+        dom.importLearnersFileInput.value = '';
+        showLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      alert('Error reading file.');
+        showLoading(false);
+    };
+    reader.readAsText(file);
+  });
+
+  dom.exportLearnersBtn.addEventListener('click', () => {
+    if (!appData.learners.length) {
+      alert('No learners to export.');
+      return;
+    }
+    const csv = 'data:text/csv;charset=utf-8,' +
+      appData.learners.map(l => `"${l.name.replace(/"/g, '""')}"`).join('\n');
+    const encoded = encodeURIComponent(csv);
+    const link = document.createElement('a');
+    link.href = 'data:text/csv;charset=utf-8,' + encoded;
+    link.download = `learners_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  dom.importSubjectsBtn.addEventListener('click', () => dom.importSubjectsFileInput.click());
+  dom.importSubjectsFileInput.addEventListener('change', e => {
+    if (!e.target.files.length) return;
+    showLoading(true);
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const lines = reader.result.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        let added = 0;
+        lines.forEach(line => {
+          const name = line.split(',')[0].replace(/^"|"$/g, '').trim();
+          if (!name) return;
+          if (addSubject(name)) added++;
+        });
+        alert(`Imported ${added} subjects.`);
+      } catch (e) {
+        alert('Error processing CSV file. Please check the format.');
+      } finally {
+        dom.importSubjectsFileInput.value = '';
+        showLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      alert('Error reading file.');
+      showLoading(false);
+    };
+    reader.readAsText(file);
+  });
+
+  dom.exportSubjectsBtn.addEventListener('click', () => {
+    if (!appData.subjects.length) {
+      alert('No subjects to export.');
+      return;
+    }
+    const csv = 'data:text/csv;charset=utf-8,' +
+      appData.subjects.map(s => `"${s.name.replace(/"/g, '""')}"`).join('\n');
+    const encoded = encodeURIComponent(csv);
+    const link = document.createElement('a');
+    link.href = 'data:text/csv;charset=utf-8,' + encoded;
+    link.download = `subjects_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  // PWA setup
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(error => {
+        console.warn('Service worker registration failed:', error);
+      });
+    });
+  }
+
+  // Initialize
+  const debouncedRenderLearnersPage = debounce(renderLearnersPage, 500);
+  const debouncedRenderSubjectsPage = debounce(renderSubjectsPage, 500);
+
+  function initialize() {
+    try {
+      loadAppData();
+      fillSchoolForm();
+      filterAndRenderLearners();
+      filterAndRenderSubjects();
+      debouncedRenderScoresTable();
+      updateDownloadControls(false);
+      updateLearnerSelect();
+      updateCharts();
+    } catch (e) {
+      console.error('Initialization error:', e);
+      alert('Error loading the app. Please refresh the page.');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', initialize);
+})();
